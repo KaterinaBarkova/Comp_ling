@@ -1,35 +1,36 @@
 from bs4 import BeautifulSoup
 import requests
+import pandas as pd
+from preprocess_news import apply_prep
+from classify_news import classify
 
-url = "https://upravadorogomilovo.ru/news"
+def parse_news(date="2021-06-24"):
+    url = "https://www.huffpost.com/archive/"+date
 
-amount = 0
-_links = []
-for i in range(7):
-    html = requests.get(url).text
-    soup = BeautifulSoup(html, 'html5lib')
-    for links in soup.find_all('a', 'read-more-button'):
-        _links.append(links.get('href'))
-        amount = amount + 1
-    
-    _next = soup.find('a', 'next')
-    url = "https://upravadorogomilovo.ru/" + _next.get('href')
-    
-print(amount)
-with open("Дорогомилово.txt", "w", encoding="utf-8") as f:
-    for link in _links:
-        f.write(link + "\n") 
+    headers = {
+        "User-Agent" : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.129 Safari/537.36"
+    }
 
+    html = requests.get(url, headers=headers).text
+    soup = BeautifulSoup(html, "html.parser")
 
-with open("Дорогомилово.txt", "r", encoding="utf-8") as f:
-    links = f.readlines()
+    archive = soup.find("div", "archive__entries")
+    cards = archive.find_all("div", "card__content")
 
-amount = 0
-for link in links:
-    html = requests.get(link[:-1]).text
-    soup = BeautifulSoup(html, 'html5lib')
-    div = soup.find('div', 'entry-content')
-    with open("news/Dorogomilovo" + str(amount) + ".txt", "w", encoding="utf-8") as f:
-        for p in div.find_all('p'):
-            f.write(p.text + "\n")
-    amount += 1
+    headlines = []
+    short_descriptions = []
+    for card in cards:
+        headline = card.find("div", "card__headline").find("a").text
+        if headline == None:
+            headlines.append("")
+        else:
+            headlines.append(headline)
+
+        short_description = card.find("div", "card__description").find("a").text
+        if short_description == None:
+            short_descriptions.append("")
+        else:
+            short_descriptions.append(short_description)
+
+    df = pd.DataFrame({"headline": headlines, "short_description": short_descriptions})
+    return df
